@@ -27,7 +27,7 @@ class Eaapen
         $this->firestore->startSession();
         
         // if a client-id file was given use it, else use the default path
-        $oauthClientIdFile ??= dirname(__DIR__, 1) . '/oauth-client-id.json';
+        $oauthClientIdFile ??= dirname(__DIR__, 3) . '/oauth-client-id.json';
         $this->oauthClientIdFile = realpath($oauthClientIdFile);
         if (!file_exists($this->oauthClientIdFile)) {
             throw new Exception(
