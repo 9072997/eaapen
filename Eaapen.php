@@ -1,6 +1,12 @@
 <?php
 namespace eaapen;
 
+use EasyFirestore;
+use Exception;
+use Google_Client;
+use Google_Service_Oauth2;
+use Google_Service_Directory;
+
 class Eaapen
 {
     public EasyFirestore $firestore;
