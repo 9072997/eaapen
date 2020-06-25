@@ -52,8 +52,9 @@ class Router
         $includesFolder = $this->includesFolder;
         if (!empty($includesFolder) && file_exists($includesFolder)) {
             // include everything from the folder in alphabetical order
-            $includes = glob(__DIR__ . "/$includesFolder/*.php");
-            foreach (sort($includes) as $filename) {
+            $includes = glob("$includesFolder/*.php");
+            sort($includes);
+            foreach ($includes as $filename) {
                 require_once $filename;
             }
         }
