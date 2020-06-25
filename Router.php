@@ -15,11 +15,11 @@ class Router
     ) {
         // if no paths were given try to guess them based on the assumption
         // that we are in the composer vendor folder
-        $publicFolder ??= dirname(__DIR__, 4) . '/public';
-        $includesFolder ??= dirname(__DIR__, 4) . '/includes';
+        $publicFolder ??= dirname(__DIR__, 3) . '/public';
+        $includesFolder ??= dirname(__DIR__, 3) . '/includes';
         
-        $this->publicFolder = $publicFolder;
-        $this->includesFolder = $includesFolder;
+        $this->publicFolder = rtrim($publicFolder, '/');
+        $this->includesFolder = rtrim($includesFolder, '/');
         $this->error404Page = $error404Page;
     }
     
@@ -62,6 +62,7 @@ class Router
         // path based on $this->publicFolder.
         $path = trim($path, '/');
         $path = "{$this->publicFolder}/$path";
+        $path = rtrim($path, '/');
         
         // if the requested path is a php file
         if (self::isFile($path)) {
@@ -88,6 +89,7 @@ class Router
         } else {
             http_response_code(404);
             echo '404 - file not found';
+            error_log("404: $path");
         }
         return true;
     }
