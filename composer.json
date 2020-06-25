@@ -1,0 +1,14 @@
+{
+    "name": "9072997/eaapen",
+    "description": "EasyAppEngine helps you build internal App Engine apps quickly in PHP",
+    "license": "GPL-3.0-or-later",
+    "require": {
+        "php": ">=7.4",
+        "google/apiclient": "^2.0",
+        "9072997/auto-template": "^1.0",
+        "9072997/easy-firestore": "^1.0"
+    },
+    "autoload": {
+        "psr-0": { "Eaapen": "" }
+    }
+}
