@@ -7,11 +7,17 @@ class Router
     private string $includesFolder;
     private string $error404Page;
     
+    // set $includesFolder to an empty string to not use an includes folder.
     public function __construct(
-        string $publicFolder = 'public',
-        string $includesFolder = 'includes',
-        string $error404Page = '404.php'
+        ?string $publicFolder = null,
+        ?string $includesFolder = null,
+        string $error404Page = ''
     ) {
+        // if no paths were given try to guess them based on the assumption
+        // that we are in the composer vendor folder
+        $publicFolder ??= dirname(__DIR__, 4) . '/public';
+        $includesFolder ??= dirname(__DIR__, 4) . '/includes';
+        
         $this->publicFolder = $publicFolder;
         $this->includesFolder = $includesFolder;
         $this->error404Page = $error404Page;
@@ -21,7 +27,7 @@ class Router
     // a race condition here, but App Engine is a read-only filesystem)
     private static function isFile(string $path): bool
     {
-        return file_exists($path) && !is_dir($path);
+        return !empty($path) && file_exists($path) && !is_dir($path);
     }
     
     // pass $_SERVER['REQUEST_URI'] as $requestUri. This will try to find
@@ -52,24 +58,37 @@ class Router
             }
         }
         
-        // trim leading and trailing slashes
+        // take relative path from URL and make it an absolute filesystem
+        // path based on $this->publicFolder.
         $path = trim($path, '/');
+        $path = "{$this->publicFolder}/$path";
         
         // if the requested path is a php file
-        $publicFolder = $this->publicFolder;
-        if (self::isFile(__DIR__ . "/$publicFolder/$path")) {
-            require __DIR__ . "/public/$path";
+        if (self::isFile($path)) {
+            require $path;
             return true;
         }
         
-        // if the requested path contains an index.php
-        if (self::isFile(__DIR__ . "/$publicFolder/$path/index.php")) {
-            require __DIR__ . "/public/$path/index.php";
+        // if the requested path is a folder with an index.php
+        if (self::isFile("$path/index.php")) {
+            require "$path/index.php";
+            return true;
+        }
+        
+        // check if this is a path to a php file that is just missing the
+        // '.php' extension
+        if (self::isFile("$path.php")) {
+            require "$path.php";
             return true;
         }
         
         // fall back to 404 page
-        require_once __DIR__ . "/{$this->error404Page}";
+        if (self::isFile($this->error404Page)) {
+            require_once $this->error404Page;
+        } else {
+            http_response_code(404);
+            echo '404 - file not found';
+        }
         return true;
     }
 }
