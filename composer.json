@@ -9,6 +9,6 @@
         "9072997/easy-firestore": "^1.0"
     },
     "autoload": {
-        "psr-0": { "Eaapen": "" }
+        "psr-4": { "eaapen\\": "" }
     }
 }
