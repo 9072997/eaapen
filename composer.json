@@ -5,7 +5,7 @@
     "require": {
         "php": ">=7.4",
         "google/apiclient": "^2.0",
-        "9072997/auto-template": "^1.0",
+        "9072997/auto-template": "^2.0",
         "9072997/easy-firestore": "^1.0"
     },
     "autoload": {

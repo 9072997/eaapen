@@ -2,6 +2,7 @@
 namespace eaapen;
 
 use EasyFirestore;
+use AutoTemplate;
 use Exception;
 use Google_Client;
 use Google_Service_Oauth2;
@@ -10,6 +11,7 @@ use Google_Service_Directory;
 class Eaapen
 {
     public EasyFirestore $firestore;
+    public AutoTemplate $template;
     private string $oauthClientIdFile;
     private string $finishLoginUrl;
     private string $finishAdminLoginUrl;
@@ -44,16 +46,15 @@ class Eaapen
         }
         
         // start auto-template
-        startAutoTemplate($title, function () use ($menuItems) {
+        $this->template = new AutoTemplate($title, $menuItems);
+        $this->template->registerShutdownFunc(function ($template) {
             // hide the log-in button if the user is already logged in and
             // the log out button if the user is already logged out.
             if ($this->isLoggedIn()) {
-                unset($menuItems['Log In']);
+                unset($template->menuItems['Log In']);
             } else {
-                unset($menuItems['Log Out']);
+                unset($template->menuItems['Log Out']);
             }
-            
-            return $menuItems;
         });
     }
     
