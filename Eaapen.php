@@ -2,7 +2,7 @@
 namespace eaapen;
 
 use EasyFirestore;
-use AutoTemplate;
+use AutoTemplate\AutoTemplate;
 use Exception;
 use Google_Client;
 use Google_Service_Oauth2;
