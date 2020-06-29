@@ -55,7 +55,10 @@ class Router
             $includes = glob("$includesFolder/*.php");
             sort($includes);
             foreach ($includes as $filename) {
-                require_once $filename;
+                // give it it's own scope
+                (function () {
+                    require_once $filename;
+                })();
             }
         }
         
@@ -67,26 +70,34 @@ class Router
         
         // if the requested path is a php file
         if (self::isFile($path)) {
-            require $path;
+            (function () {
+                require $path;
+            })();
             return true;
         }
         
         // if the requested path is a folder with an index.php
         if (self::isFile("$path/index.php")) {
-            require "$path/index.php";
+            (function () {
+                require "$path/index.php";
+            })();
             return true;
         }
         
         // check if this is a path to a php file that is just missing the
         // '.php' extension
         if (self::isFile("$path.php")) {
-            require "$path.php";
+            (function () {
+                require "$path.php";
+            })();
             return true;
         }
         
         // fall back to 404 page
         if (self::isFile($this->error404Page)) {
-            require_once $this->error404Page;
+            (function () {
+                require_once $this->error404Page;
+            })();
         } else {
             http_response_code(404);
             echo '404 - file not found';
