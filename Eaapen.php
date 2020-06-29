@@ -7,6 +7,8 @@ use Exception;
 use Google_Client;
 use Google_Service_Oauth2;
 use Google_Service_Directory;
+use Google_Service_Directory_User;
+use Google_Service_Exception;
 
 class Eaapen
 {
@@ -16,6 +18,8 @@ class Eaapen
     private string $finishLoginUrl;
     private string $finishAdminLoginUrl;
     private string $gappsDomain;
+    // for cacheing to improve performance
+    private ?array $adminAccessToken = null;
     
     public function __construct(
         string $title,
@@ -66,35 +70,74 @@ class Eaapen
         return $client;
     }
     
-    // return an array of strings representing the email addresses of all
-    // groups a user is (directly or indirectly) a member of. This will not
-    // include the user's own email address.
-    public function userGroups(string $email): array
+    // get an oauth client with the credentials of our admin user
+    public function newAdminOAuthClient(): Google_Client
     {
-        $accessToken = $this
+        // try to pull cached access token. Fall back to kv store.
+        $accessToken = $this->adminAccessToken ?? $this
             ->firestore
             ->kvRead('EAAPEN_googleAdminAccessToken');
         if (empty($accessToken)) {
             throw new Exception(
-                'No admin credentials available to get group membership'
+                'No admin credentials available'
             );
         }
+        // cache access token to save time later
+        $this->adminAccessToken = $accessToken;
         
-        return $this->getUserGroupsUsingToken($email, $accessToken);
-    }
-    
-    // this is all the logic for userGroups(). Breaking it out into a
-    // separate function allows us to test if an access token works in
-    // finishAdminLogin()
-    private function getUserGroupsUsingToken(
-        string $email,
-        array $accessToken
-    ): array {
         // create a separate google client using the scopes of our admin.
         $client = $this->newOAuthClient();
         $client->setAccessToken($accessToken);
         
+        return $client;
+    }
+    
+    // return a user object from an email
+    // http://bit.do/google-user-object-php
+    public function user(string $email): Google_Service_Directory_User
+    {
+        // get google admin service client
+        $client = $this->newAdminOAuthClient();
         $googleAdmin = new Google_Service_Directory($client);
+        
+        return $googleAdmin->users->get($email);
+    }
+    
+    // return the ou of the current user (ex: /Staff/TECH)
+    public function userOU(string $email): string
+    {
+        return $this->user($email)->getOrgUnitPath();
+    }
+    
+    // returns all OUs that a user is directly or indirectly a member of.
+    // for a user in '/Staff/TECH', this would be
+    // ['/', '/Staff', '/Staff/TECH']
+    public function userOUs(string $email): array
+    {
+        // get OU elements ['', 'Staff', 'TECH']
+        $mainOU = $this->userOU($email);
+        $elements = explode('/', $mainOU);
+        
+        $ous = [];
+        $ou = '';
+        foreach ($elements as $element) {
+            $ou = '/' . trim("$ou/$element", '/');
+            $ous[] = $ou;
+        }
+        
+        return $ous;
+    }
+    
+    // return an array of strings representing the email addresses of all
+    // groups a user is (directly or indirectly) a member of. This will not
+    // include the user's own email address.
+    private function userGroups(string $email): array
+    {
+        // create a separate google client using the scopes of our admin.
+        // This lets us use the Admin Directory service.
+        $client = $this->newAdminOAuthClient();
+        $googleAdmin = new Google_Service_Directory($client);
+        
         // list all groups a user is a member of
         // NOTE: google starts paginating results if you are a member of
         // more than 200 groups. That behavior here is untested.
@@ -110,7 +153,7 @@ class Eaapen
             
             // check if this group is a member of any other groups
             $indirectGroups = $this
-                ->getUserGroupsUsingToken($groupEmail, $accessToken);
+                ->userGroups($groupEmail);
             $groupEmails = array_merge($groupEmails, $indirectGroups);
         }
         
@@ -169,12 +212,12 @@ class Eaapen
     }
     
     // place this function at the top of a page you want to restrict access
-    // to and give it an array of email addresses containing all the users
-    // and groups that should have access to the page. If a user is not
+    // to and give it an array of email addresses containing all the users,
+    // groups, and OUs that should have access to the page. If a user is not
     // signed in they will be redirected to a sign in, then back to the
     // page. If they don't have access they will be shown which groups do.
     // This will end script execution if the user does not have access.
-    public function requireAuthorizedUser(array $authorizedGroups): void
+    public function requireAuthorizedUser(array $authorizedRoles): void
     {
         // get the current user email. This will redirect to a login if no
         // user is signed in.
@@ -182,22 +225,24 @@ class Eaapen
         
         // if the user's groups are not already cached in the session, fetch
         // them from Google and cache them in the session.
-        if (!isset($_SESSION['EAAPEN_groups'])) {
-            $_SESSION['EAAPEN_groups'] = $this->userGroups($userEmail);
+        if (!isset($_SESSION['EAAPEN_roles'])) {
+            // a user is always a member of their own role. They are
+            // also members of a role for any group or OU they are in.
+            $_SESSION['EAAPEN_roles'] = array_merge(
+                [$userEmail],
+                $this->userGroups($userEmail),
+                $this->userOUs($userEmail)
+            );
         }
-        $groups = $_SESSION['EAAPEN_groups'];
-        
-        // We also consider the user to be a group of their own, so a user
-        // can be explicitly allowed access to a page.
-        $groups[] = $userEmail;
+        $roles = $_SESSION['EAAPEN_roles'];
         
         // convert to lower case for consistent compares
-        $authorizedGroups = array_map('strtolower', $authorizedGroups);
-        $groups = array_map('strtolower', $groups);
+        $authorizedRoles = array_map('strtolower', $authorizedRoles);
+        $roles = array_map('strtolower', $roles);
         
         // check if the user's groups and the allowed groups overlap.
         // if so they have access.
-        $hasAccess = array_intersect($groups, $authorizedGroups);
+        $hasAccess = array_intersect($roles, $authorizedRoles);
         
         // if the user does not have access give them a good error page
         // explaining why they don't have access.
@@ -205,15 +250,15 @@ class Eaapen
             header('HTTP/1.0 403 Forbidden');
             echo "You don't have permission to access this page.<br>\n";
             echo "You are signed in as $userEmail<br>\n";
-            echo "You are a member of these groups:\n";
+            echo "You are a member of these roles:\n";
             echo "<ul>\n";
-            foreach ($groups as $group) {
-                echo "<li>$group</li>\n";
+            foreach ($roles as $role) {
+                echo "<li>$role</li>\n";
             }
             echo "</ul>\n";
-            echo "Authorized users/groups:\n";
+            echo "Authorized roles:\n";
             echo "<ul>\n";
-            foreach ($authorizedGroups as $authorizedGroup) {
+            foreach ($authorizedRoles as $authorizedGroup) {
                 echo "<li>$authorizedGroup</li>\n";
             }
             echo "</ul>\n";
@@ -311,7 +356,7 @@ class Eaapen
     // TODO: invalidate token on google side
     public function logout(): void
     {
-        unset($_SESSION['EAAPEN_groups']);
+        unset($_SESSION['EAAPEN_roles']);
         unset($_SESSION['EAAPEN_email']);
     }
     
@@ -336,7 +381,8 @@ class Eaapen
         // request profile (to verify domain) and read-only access to groups
         $client->setScopes([
             Google_Service_Oauth2::USERINFO_EMAIL,
-            Google_Service_Directory::ADMIN_DIRECTORY_GROUP_READONLY
+            Google_Service_Directory::ADMIN_DIRECTORY_GROUP_READONLY,
+            Google_Service_Directory::ADMIN_DIRECTORY_USER_READONLY
         ]);
         
         self::redirect($client->createAuthUrl());
@@ -348,7 +394,8 @@ class Eaapen
     // be used to check group membership later. This will not end script
     // execution.
     public function finishAdminLogin(
-        string $authCode
+        string $authCode,
+        bool $checkAccess = true
     ): void {
         $client = $this->newOAuthClient();
         $client->setRedirectUri($this->finishAdminLoginUrl);
@@ -372,6 +419,7 @@ class Eaapen
         $userProfile = (new Google_Service_OAuth2($client))
             ->userinfo_v2_me
             ->get();
+        $email = $userProfile->email;
         $domain = $userProfile->hd;
         
         // check that our admin is a member of our app's domain
@@ -379,12 +427,17 @@ class Eaapen
             throw new Exception('Account domain does not match');
         }
         
-        // check if this access token grants us permission to read groups
+        // check if this access token grants the requested permissions
+        $scopes = explode(' ', $accessToken['scope']);
         $hasGroupAccess = in_array(
             Google_Service_Directory::ADMIN_DIRECTORY_GROUP_READONLY,
-            explode(' ', $accessToken['scope'])
+            $scopes
         );
-        if (!$hasGroupAccess) {
+        $hasUserAccess = in_array(
+            Google_Service_Directory::ADMIN_DIRECTORY_USER_READONLY,
+            $scopes
+        );
+        if (!$hasGroupAccess || !$hasGroupAccess) {
             error_log(
                 'Access token did not grant the requested permissions: ' .
                 print_r($accessToken, true)
@@ -394,18 +447,22 @@ class Eaapen
             );
         }
         
-        try {
-            // try to get groups for a fake email. If we have access to
-            // google groups this returns an empty array even if the account
-            // does not exist
-            $fakeEmail = "example@{$this->gappsDomain}";
-            $this->getUserGroupsUsingToken($fakeEmail, $accessToken);
-        } catch (Google_Service_Exception $exception) {
-            error_log(
-                'Unable to access group information: ' .
-                print_r($exception, true)
-            );
-            throw $exception;
+        // optionally test that the token works before we overwrite the old
+        // one. This can't detect cases where a user has only scoped access
+        // to these APIs, but it at least makes sure they can view OU/groups
+        // for their own account.
+        if ($checkAccess) {
+            try {
+                $this->adminAccessToken = $accessToken;
+                $this->userGroups($email);
+                $this->userOU($email);
+            } catch (Google_Service_Exception $exception) {
+                error_log(
+                    "Error using new token. It will not be saved.\n" .
+                    print_r($exception, true)
+                );
+                throw $exception;
+            }
         }
         
         // save the access token (which should include a refresh token)
