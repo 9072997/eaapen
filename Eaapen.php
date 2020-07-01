@@ -152,8 +152,7 @@ class Eaapen
             $groupEmails[] = $groupEmail;
             
             // check if this group is a member of any other groups
-            $indirectGroups = $this
-                ->userGroups($groupEmail);
+            $indirectGroups = $this->userGroups($groupEmail);
             $groupEmails = array_merge($groupEmails, $indirectGroups);
         }
         
