@@ -278,6 +278,8 @@ class Eaapen
         $client = $this->newOAuthClient();
         // send the user back with the code
         $client->setRedirectUri($this->finishLoginUrl);
+        // don't just skip through the login
+        $client->setPrompt('consent');
         
         // we only need to be able to get the user's email
         $client->setScopes([Google_Service_Oauth2::USERINFO_EMAIL]);
