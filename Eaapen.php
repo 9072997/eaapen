@@ -9,6 +9,8 @@ use Google_Service_Oauth2;
 use Google_Service_Directory;
 use Google_Service_Directory_User;
 use Google_Service_Exception;
+use Google_Service_Gmail;
+use Google_Service_Gmail_Message;
 
 class Eaapen
 {
@@ -383,7 +385,8 @@ class Eaapen
         $client->setScopes([
             Google_Service_Oauth2::USERINFO_EMAIL,
             Google_Service_Directory::ADMIN_DIRECTORY_GROUP_READONLY,
-            Google_Service_Directory::ADMIN_DIRECTORY_USER_READONLY
+            Google_Service_Directory::ADMIN_DIRECTORY_USER_READONLY,
+            Google_Service_Gmail::GMAIL_SEND
         ]);
         
         self::redirect($client->createAuthUrl());
@@ -438,7 +441,11 @@ class Eaapen
             Google_Service_Directory::ADMIN_DIRECTORY_USER_READONLY,
             $scopes
         );
-        if (!$hasGroupAccess || !$hasGroupAccess) {
+        $hasEmailAccess = in_array(
+            Google_Service_Gmail::GMAIL_SEND,
+            $scopes
+        );
+        if (!$hasGroupAccess || !$hasUserAccess || !$hasEmailAccess) {
             error_log(
                 'Access token did not grant the requested permissions: ' .
                 print_r($accessToken, true)
@@ -493,5 +500,43 @@ class Eaapen
     public function isLoggedIn(): bool
     {
         return !empty($this->currentUserEmail(false));
+    }
+    
+    // base64 encoding with '-' and '_' as the last 2 charicters with no
+    // padding. This is how MIME email messages should be encoded.
+    private static function mailEncode(string $input): string {
+        return rtrim(strtr(base64_encode($input), '+/', '-_'), '=');
+    }
+    
+    public function mail(string $to, string $subject, string $body): void
+    {
+        $client = $this->newAdminOAuthClient();
+        
+        // from address should be the address of our admin account
+        $from = (new Google_Service_OAuth2($client))
+            ->userinfo_v2_me
+            ->get()
+            ->email;
+        
+        // create MIME message
+        $payload = imap_mail_compose([
+            'from' => $from,
+            'to' => $to,
+            'subject' => $subject
+        ], [
+            1 => [
+                'type' => TYPETEXT,
+                'subtype' => 'html',
+                'contents.data' => $body
+            ]
+        ]);
+        
+        // turn standard MIME message into a Google object thing
+        $message = new Google_Service_Gmail_Message();
+        $message->setRaw(self::mailEncode($payload));
+        
+        // send message
+        $gmail = new Google_Service_Gmail($client);
+        $gmail->users_messages->send($from, $message);
     }
 }
