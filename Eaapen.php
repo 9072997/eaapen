@@ -4,6 +4,7 @@ namespace eaapen;
 use EasyFirestore;
 use AutoTemplate\AutoTemplate;
 use Exception;
+use Mail_mime;
 use Google_Client;
 use Google_Service_Oauth2;
 use Google_Service_Directory;
@@ -519,24 +520,19 @@ class Eaapen
             ->email;
         
         // create MIME message
-        $payload = imap_mail_compose([
-            'from' => $from,
-            'to' => $to,
-            'subject' => $subject
-        ], [
-            1 => [
-                'type' => TYPETEXT,
-                'subtype' => 'html',
-                'contents.data' => $body
-            ]
-        ]);
+        $mimeMsg = new Mail_mime();
+        $mimeMsg->setFrom($from);
+        $mimeMsg->addTo($to);
+        $mimeMsg->setSubject($subject);
+        $mimeMsg->setHTMLBody($body);
+        $encodedMsg = self::mailEncode($mimeMsg->getMessage());
         
         // turn standard MIME message into a Google object thing
-        $message = new Google_Service_Gmail_Message();
-        $message->setRaw(self::mailEncode($payload));
+        $gmailMsg = new Google_Service_Gmail_Message();
+        $gmailMsg->setRaw($encodedMsg);
         
         // send message
         $gmail = new Google_Service_Gmail($client);
-        $gmail->users_messages->send($from, $message);
+        $gmail->users_messages->send($from, $gmailMsg);
     }
 }
