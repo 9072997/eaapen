@@ -102,7 +102,7 @@ class Eaapen
         $client = $this->newAdminOAuthClient();
         $googleAdmin = new Google_Service_Directory($client);
         
-        return $googleAdmin->users->get($email);
+        return $googleAdmin->users->get($email, ['projection' => 'full']);
     }
     
     // return the ou of the current user (ex: /Staff/TECH)
