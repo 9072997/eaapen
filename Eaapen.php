@@ -1,7 +1,6 @@
 <?php
 namespace eaapen;
 
-use EasyFirestore;
 use AutoTemplate\AutoTemplate;
 use Exception;
 use Mail_mime;
@@ -15,7 +14,7 @@ use Google_Service_Gmail_Message;
 
 class Eaapen
 {
-    public EasyFirestore $firestore;
+    public EaapenFirestore $firestore;
     public AutoTemplate $template;
     private string $oauthClientIdFile;
     private string $finishLoginUrl;
@@ -38,7 +37,7 @@ class Eaapen
         
         // create a new firestore instance and register it as the session
         // handler
-        $this->firestore = new EasyFirestore();
+        $this->firestore = new EaapenFirestore();
         $this->firestore->startSession();
         
         // if a client-id file was given use it, else use the default path
@@ -505,7 +504,8 @@ class Eaapen
     
     // base64 encoding with '-' and '_' as the last 2 charicters with no
     // padding. This is how MIME email messages should be encoded.
-    private static function mailEncode(string $input): string {
+    private static function mailEncode(string $input): string
+    {
         return rtrim(strtr(base64_encode($input), '+/', '-_'), '=');
     }
     

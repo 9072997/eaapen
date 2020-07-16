@@ -6,8 +6,7 @@
         "php": ">=7.4",
         "google/apiclient": "^2.0",
         "pear/mail_mime": "^1.10",
-        "9072997/auto-template": "^2.0",
-        "9072997/easy-firestore": "^1.0"
+        "9072997/auto-template": "^2.0"
     },
     "autoload": {
         "psr-4": { "eaapen\\": "" }
