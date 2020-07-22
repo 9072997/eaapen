@@ -2,6 +2,8 @@
 namespace eaapen;
 
 use SessionHandlerInterface;
+use DateTimeImmutable;
+use DateInterval;
 use Google\Cloud\Firestore\CollectionReference;
 use Google\Cloud\Firestore\DocumentReference;
 use Google\Cloud\Firestore\FieldValue;
