@@ -5,6 +5,7 @@
     "require": {
         "php": ">=7.4",
         "google/apiclient": "^2.0",
+        "google/cloud-firestore": "^1.19",
         "pear/mail_mime": "^1.10",
         "9072997/auto-template": "^2.0"
     },
