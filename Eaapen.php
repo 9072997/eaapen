@@ -163,6 +163,21 @@ class Eaapen
         return array_unique($groupEmails);
     }
     
+    // return true if the given user is directly or indirectly a member
+    // of the given group.
+    public function isMember(string $user, string $group): bool
+    {
+        // create a separate google client using the scopes of our admin.
+        // This lets us use the Admin Directory service.
+        $client = $this->newAdminOAuthClient();
+        $googleAdmin = new Google_Service_Directory($client);
+
+        return $googleAdmin
+            ->members
+            ->hasMember($group, $user)
+            ->getIsMember();
+    }
+
     // return the base url of the server (without trailing slash)
     public static function serverUrl(): string
     {
@@ -380,7 +395,7 @@ class Eaapen
         // so we get a refresh token
         $client->setAccessType('offline');
         $client->setPrompt('consent');
-
+        
         // request profile (to verify domain) and read-only access to groups
         $client->setScopes([
             Google_Service_Oauth2::USERINFO_EMAIL,
