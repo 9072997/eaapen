@@ -153,8 +153,9 @@ class EaapenFirestore extends FirestoreClient
     }
 
     // delete all documents returned by a query (shallow)
-    public function deleteQueryDocs(Query $query, bool $batch = true): void
+    public function deleteQueryDocs(Query $query, bool $batch = true): int
     {
+        $numDeleted = 0;
         foreach ($query->documents() as $doc) {
             $docRef = $doc->reference();
             if ($batch) {
@@ -162,6 +163,8 @@ class EaapenFirestore extends FirestoreClient
             } else {
                 $docRef->delete();
             }
+            $numDeleted++;
         }
+        return $numDeleted;
     }
 }

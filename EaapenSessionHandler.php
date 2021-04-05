@@ -94,7 +94,7 @@ class EaapenSessionHandler implements SessionHandlerInterface
             ->where('modified', '<', $oldestAcceptable)
             ->limit($this->gcLimit);
         
-        $this
+        return $this
             ->firestore
             ->deleteQueryDocs($oldSessionsQuery, false);
     }
