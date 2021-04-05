@@ -87,7 +87,7 @@ class EaapenSessionHandler implements SessionHandlerInterface
         $maxAgeSeconds = intval($maxAgeSeconds);
         $now = new DateTimeImmutable();
         $maxAge = new DateInterval("PT${maxAgeSeconds}S");
-        $oldestAcceptable = $now.sub($maxAge);
+        $oldestAcceptable = $now->sub($maxAge);
         
         $oldSessionsQuery = $this
             ->sessionsCollection
