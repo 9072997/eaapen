@@ -118,7 +118,7 @@ class EaapenFirestore extends FirestoreClient
                 ->autoBatch()
                 ->delete($document);
         } else {
-            $document->delete($data);
+            $document->delete();
         }
     }
     
@@ -145,7 +145,9 @@ class EaapenFirestore extends FirestoreClient
     ): void {
         foreach ($collection->listDocuments() as $doc) {
             if ($batch) {
-                autoBatch()->delete($doc);
+                $this
+                    ->autoBatch()
+                    ->delete($doc);
             } else {
                 $doc->delete();
             }
@@ -159,7 +161,9 @@ class EaapenFirestore extends FirestoreClient
         foreach ($query->documents() as $doc) {
             $docRef = $doc->reference();
             if ($batch) {
-                autoBatch()->delete($docRef);
+                $this
+                    ->autoBatch()
+                    ->delete($docRef);
             } else {
                 $docRef->delete();
             }
