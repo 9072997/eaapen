@@ -246,7 +246,6 @@ class Eaapen
             // also members of a role for any group or OU they are in.
             $_SESSION['EAAPEN_roles'] = array_merge(
                 [$userEmail],
-                $this->userGroups($userEmail),
                 $this->userOUs($userEmail)
             );
         }
@@ -259,6 +258,21 @@ class Eaapen
         // check if the user's groups and the allowed groups overlap.
         // if so they have access.
         $hasAccess = array_intersect($roles, $authorizedRoles);
+        
+        // if not, check for group membership
+        if (!$hasAccess) {
+            foreach ($authorizedRoles as $authorizedGroup) {
+                if ($this->isMember($userEmail, $authorizedGroup)) {
+                    // add the group to the user's roles so we don't have to
+                    // check it again
+                    $roles[] = $authorizedGroup;
+                    $_SESSION['EAAPEN_roles'] = $roles;
+                    
+                    $hasAccess = true;
+                    break;
+                }
+            }
+        }
         
         // if the user does not have access give them a good error page
         // explaining why they don't have access.
