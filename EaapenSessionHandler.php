@@ -27,9 +27,7 @@ class EaapenSessionHandler implements SessionHandlerInterface
     // save references to the sessions collection and session document
     public function open($savePath, $sessionName): bool
     {
-        if (empty($savePath)) {
-            $savePath = 'EAAPEN_sessions';
-        }
+        $savePath = 'EAAPEN_sessions';
         
         $this->sessionsCollection = $this
             ->firestore
@@ -86,7 +84,7 @@ class EaapenSessionHandler implements SessionHandlerInterface
     {
         $maxAgeSeconds = intval($maxAgeSeconds);
         $now = new DateTimeImmutable();
-        $maxAge = new DateInterval("PT${maxAgeSeconds}S");
+        $maxAge = new DateInterval("PT{$maxAgeSeconds}S");
         $oldestAcceptable = $now->sub($maxAge);
         
         $oldSessionsQuery = $this
